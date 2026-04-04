@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion ,AnimatePresence } from 'framer-motion';
 import PageTransition, { cardVariants } from '../components/PageTransition';
 import { createSession, updateSession } from '../api';
 

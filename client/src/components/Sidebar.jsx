@@ -1,6 +1,8 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
+import { useAuth } from "../context/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const navItems = [
   {
@@ -62,6 +64,8 @@ const navItems = [
 export default function Sidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <>
@@ -184,6 +188,40 @@ export default function Sidebar() {
             );
           })}
         </nav>
+
+        {/* PROFILE SECTION */}
+        <div className="px-3 mb-4">
+          <div
+            className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl"
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            {/* User Info */}
+            {!collapsed && (
+              <div className="flex flex-col">
+                <span className="text-sm text-white font-medium">
+                  {user?.name || "User"}
+                </span>
+                <span className="text-[10px] text-gray-400">
+                  {user?.email}
+                </span>
+              </div>
+            )}
+
+            {/* Logout Button */}
+            <button
+              onClick={() => {
+                logout();
+                navigate("/"); // 🔥 redirect to login
+              }}
+              className="text-xs text-red-400 hover:text-red-300 transition"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
 
         {/* Collapse */}
         <button

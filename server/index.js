@@ -5,6 +5,8 @@ const mongoose = require('mongoose') // MongoDB se baat karne wala package
 const sessionRoutes = require('./routes/sessionRoutes');
 const contractRoutes = require('./routes/contractRoutes');
 const planRoutes = require('./routes/planRoutes');
+const authController = require('./controllers/authController');
+const authRoutes = require('./routes/authRoutes');
 
 dotenv.config();
 
@@ -13,6 +15,7 @@ const app=express();
 //middlewares
 app.use(cors())         // frontend ko allow karo
 app.use(express.json()) // incoming data ko JS object mein badlo
+app.use('/api/auth', authRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/contracts', contractRoutes);
 app.use('/api/plan', planRoutes);

@@ -7,6 +7,20 @@ const api = axios.create({
   },
 });
 
+// ✅ ADD THIS BLOCK (IMPORTANT)
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 // ─── Session Endpoints ─────────────────────────
 export const createSession = (data) => api.post('/sessions', data);
 export const updateSession = (id, data) => api.patch(`/sessions/${id}`, data);

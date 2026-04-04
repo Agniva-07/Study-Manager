@@ -4,6 +4,7 @@ require("dotenv").config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function generateRoadmap(goal, dailyTime, durationWeeks) {
+  console.log("🔥 FUNCTION CALLED");
   // 1. Updated to a supported model version
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash" 
@@ -38,11 +39,21 @@ Keep it progressive and practical.
   try {
     // 2. Wrapped the API call in the try/catch to handle network/404 errors
     const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const response = result.response;
+
+    console.log("FULL RESPONSE:", JSON.stringify(response, null, 2));
+
+    const text = response.candidates?.[0]?.content?.parts?.[0]?.text;
 
     const cleanText = text.replace(/```json|```/g, "").trim();
     
-    return JSON.parse(cleanText);
+    console.log("AI Raw Response:", text);
+    try {
+      return JSON.parse(cleanText);
+    } catch (parseError) {
+      console.error("JSON PARSE ERROR:", cleanText);
+      throw new Error("Invalid JSON from AI");
+    }
   } catch (err) {
     console.error("AI Service Error:", err.message);
     return { error: "Failed to generate roadmap. Please check the server logs." };

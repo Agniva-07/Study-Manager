@@ -92,7 +92,7 @@ export default function Roadmap() {
         durationWeeks: parseInt(weeks),
       });
 
-      const data = res.data;
+      const data = res.data.roadmap || res.data; // Handle both { roadmap: {...} } and direct {...} responses
 
       // Handle backend error response
       if (data.error) {

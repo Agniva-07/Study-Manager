@@ -17,7 +17,12 @@ const contractSchema = new mongoose.Schema({
     reviewCompleted: {
         type: Boolean,
         default: false
-    }
+    },
+    userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+    },
 });
 
 module.exports = mongoose.model('Contract', contractSchema);

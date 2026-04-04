@@ -2,21 +2,29 @@ const express = require('express');
 const router = express.Router();
 const Session = require('../models/Session');
 
-router.post('/', async (req, res) => {
-    try {
-        const session = new Session(req.body);
-        await session.save();
+const { protect } = require('../middleware/authMiddleware');
 
+// ✅ CREATE SESSION
+router.post('/', protect, async (req, res) => {
+    try {
+        const session = new Session({
+            ...req.body,
+            userId: req.user._id
+        });
+
+        await session.save();
         res.status(201).json(session);
+
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-router.patch('/:id', async (req, res) => {
+// ✅ UPDATE SESSION
+router.patch('/:id', protect, async (req, res) => {
     try {
-        const updatedSession = await Session.findByIdAndUpdate(
-            req.params.id,
+        const updatedSession = await Session.findOneAndUpdate(
+            { _id: req.params.id, userId: req.user._id },
             req.body,
             { new: true, runValidators: true }
         );
@@ -26,14 +34,19 @@ router.patch('/:id', async (req, res) => {
         }
 
         res.json(updatedSession);
+
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-router.get('/stats', async (req, res) => {
+// ✅ STATS
+router.get('/stats', protect, async (req, res) => {
     try {
         const stats = await Session.aggregate([
+            {
+                $match: { userId: req.user._id } // 🔥 IMPORTANT
+            },
             {
                 $group: {
                     _id: "$section",
@@ -42,7 +55,6 @@ router.get('/stats', async (req, res) => {
             }
         ]);
 
-        // Step 1: initialize all sections
         const allSections = ["dsa", "dev", "semester"];
         const result = {};
 
@@ -50,12 +62,10 @@ router.get('/stats', async (req, res) => {
             result[sec] = 0;
         });
 
-        // Step 2: fill actual data
         stats.forEach(item => {
             result[item._id] = item.totalTime;
         });
 
-        // Step 3: generate insights
         const insights = [];
 
         allSections.forEach(sec => {
@@ -66,7 +76,7 @@ router.get('/stats', async (req, res) => {
 
         res.json({
             stats: result,
-            insights: insights
+            insights
         });
 
     } catch (error) {
@@ -74,15 +84,14 @@ router.get('/stats', async (req, res) => {
     }
 });
 
-
-
-//dashboard analytics
-router.get('/dashboard', async (req, res) => {
+// ✅ DASHBOARD
+router.get('/dashboard', protect, async (req, res) => {
     try {
-        const sessions = await Session.find();
+        const sessions = await Session.find({ userId: req.user._id });
 
         let totalTime = 0;
         let signalTime = 0;
+
         let sectionStats = {
             dsa: 0,
             dev: 0,
@@ -90,19 +99,14 @@ router.get('/dashboard', async (req, res) => {
         };
 
         sessions.forEach(session => {
-            // total time
             totalTime += session.duration;
-
-            // section stats
             sectionStats[session.section] += session.duration;
 
-            // signal time
             if (session.quality === "signal") {
                 signalTime += session.duration;
             }
         });
 
-        // calculate ratio
         const signalRatio = totalTime === 0 ? 0 : (signalTime / totalTime);
 
         res.json({
@@ -116,9 +120,10 @@ router.get('/dashboard', async (req, res) => {
     }
 });
 
-router.get('/dashboard/trends', async (req, res) => {
+// ✅ TRENDS
+router.get('/dashboard/trends', protect, async (req, res) => {
     try {
-        const sessions = await Session.find();
+        const sessions = await Session.find({ userId: req.user._id });
 
         const dailyMap = {};
 
@@ -126,29 +131,22 @@ router.get('/dashboard/trends', async (req, res) => {
             const date = new Date(session.date).toISOString().split('T')[0];
 
             if (!dailyMap[date]) {
-                dailyMap[date] = {
-                    total: 0,
-                    signal: 0
-                };
+                dailyMap[date] = { total: 0, signal: 0 };
             }
 
-            // total time
             dailyMap[date].total += session.duration;
 
-            // signal time
             if (session.quality === "signal") {
                 dailyMap[date].signal += session.duration;
             }
         });
 
-        // convert to array
         const result = Object.keys(dailyMap).map(date => ({
             date,
             total: dailyMap[date].total,
             signal: dailyMap[date].signal
         }));
 
-        // sort by date
         result.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         res.json({ daily: result });
@@ -158,25 +156,18 @@ router.get('/dashboard/trends', async (req, res) => {
     }
 });
 
-
-
-//gravity score analytics 
-router.get('/dashboard/gravity', async (req, res) => {
+// ✅ GRAVITY
+router.get('/dashboard/gravity', protect, async (req, res) => {
     try {
-        const sessions = await Session.find();
+        const sessions = await Session.find({ userId: req.user._id });
 
         const sections = ["dsa", "dev", "semester"];
 
-        // initialize
         const data = {};
         sections.forEach(sec => {
-            data[sec] = {
-                total: 0,
-                signal: 0
-            };
+            data[sec] = { total: 0, signal: 0 };
         });
 
-        // fill data
         sessions.forEach(session => {
             const sec = session.section;
 
@@ -187,7 +178,6 @@ router.get('/dashboard/gravity', async (req, res) => {
             }
         });
 
-        // calculate scores
         const scores = {};
 
         sections.forEach(sec => {
@@ -202,8 +192,8 @@ router.get('/dashboard/gravity', async (req, res) => {
             scores[sec] = Number((timeFactor + qualityFactor).toFixed(2));
         });
 
-        // find max
         let recommendation = sections[0];
+
         sections.forEach(sec => {
             if (scores[sec] > scores[recommendation]) {
                 recommendation = sec;
