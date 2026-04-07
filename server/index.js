@@ -15,7 +15,9 @@ dotenv.config();
 const app=express();
 
 //middlewares
-app.use(cors())         // frontend ko allow karo
+app.use(cors({
+  origin: "*"
+}));       // frontend ko allow karo
 app.use(express.json()) // incoming data ko JS object mein badlo
 app.use('/api/auth', authRoutes);
 app.use('/api/sessions', sessionRoutes);
