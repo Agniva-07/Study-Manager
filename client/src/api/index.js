@@ -28,6 +28,10 @@ export const getSessionStats = () => api.get('/sessions/stats');
 export const getDashboard = () => api.get('/sessions/dashboard');
 export const getDashboardTrends = () => api.get('/sessions/dashboard/trends');
 export const getDashboardGravity = () => api.get('/sessions/dashboard/gravity');
+export const getBuilderStats = (sectionName) => api.get(`/sections/${sectionName}/builder-stats`);
+export const getLeaderboard = () => api.get('/leaderboard');
+export const getPublicProfile = (id) => api.get(`/users/${id}/profile`);
+export const getWeeklyStats = (id) => api.get(`/users/${id}/weekly-stats`);
 
 // ─── Analytics Endpoints ───────────────────────
 export const getAnalyticsHeatmap = () => api.get('/analytics/heatmap');

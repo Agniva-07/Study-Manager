@@ -7,6 +7,8 @@ const contractRoutes = require('./routes/contractRoutes');
 const planRoutes = require('./routes/planRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const authRoutes = require('./routes/authRoutes');
+const sectionRoutes = require("./routes/sectionRoutes");
+const socialRoutes = require('./routes/socialRoutes');
 
 dotenv.config();
 
@@ -20,6 +22,8 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/contracts', contractRoutes);
 app.use('/api/plan', planRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use("/api/sections", sectionRoutes);
+app.use('/api', socialRoutes);
 
 //connection with mongodb
 const connectDB=async ()=>{

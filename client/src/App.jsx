@@ -7,6 +7,7 @@ import Session from './pages/Session';
 import Analytics from './pages/Analytics';
 import Contracts from './pages/Contracts';
 import Roadmap from './pages/Roadmap';
+import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 
@@ -38,6 +39,7 @@ export default function App() {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/contracts" element={<Contracts />} />
               <Route path="/roadmap" element={<Roadmap />} />
+              <Route path="/profile/:id" element={<Profile />} />
 
               {/* 🔥 fallback */}
               <Route path="*" element={<Navigate to="/" />} />

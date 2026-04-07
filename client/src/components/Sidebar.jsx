@@ -59,6 +59,16 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    path: '/profile',
+    label: 'Profile',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21a8 8 0 0 0-16 0" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+  },
 ];
 
 export default function Sidebar() {
@@ -66,6 +76,11 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const effectiveNavItems = navItems.map((item) =>
+    item.path === '/profile'
+      ? { ...item, path: `/profile/${user?.id || user?._id}` }
+      : item
+  );
 
   return (
     <>
@@ -97,7 +112,7 @@ export default function Sidebar() {
           backdropFilter: 'blur(20px)',
         }}
       >
-        {navItems.map((item) => {
+        {effectiveNavItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <NavLink key={item.path} to={item.path} className="relative flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all duration-300"
@@ -153,7 +168,7 @@ export default function Sidebar() {
 
         {/* Nav items */}
         <nav className="flex-1 flex flex-col gap-1 px-3 mt-4">
-          {navItems.map((item) => {
+          {effectiveNavItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <NavLink key={item.path} to={item.path}

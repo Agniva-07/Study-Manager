@@ -8,6 +8,8 @@ import PageTransition, { cardVariants } from '../components/PageTransition';
 import StatCard from '../components/StatCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getDashboard, getSessionStats, getDashboardGravity } from '../api';
+import BuilderTower from "../components/BuilderTower";
+import Leaderboard from '../components/Leaderboard';
 
 const SECTION_COLORS = {
   dsa: '#a855f7',
@@ -302,6 +304,21 @@ export default function Dashboard() {
               })}
             </div>
           </motion.div>
+        </div>
+
+        <div className="mt-8">
+          <h3 className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: '#8888aa' }}>
+            Builder Tower 2.0
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <BuilderTower section="dsa" />
+            <BuilderTower section="dev" />
+            <BuilderTower section="semester" />
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <Leaderboard />
         </div>
       </div>
     </PageTransition>
