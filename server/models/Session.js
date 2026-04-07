@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { SECTIONS, QUALITIES } = require('../constants/domain');
 
 const sessionSchema = new mongoose.Schema(
   {
@@ -9,7 +10,7 @@ const sessionSchema = new mongoose.Schema(
     },
     section: {
       type: String,
-      enum: ['dsa', 'dev', 'semester'],
+      enum: SECTIONS,
       required: true,
     },
     duration: {
@@ -22,6 +23,7 @@ const sessionSchema = new mongoose.Schema(
     },
     quality: {
       type: String,
+      enum: QUALITIES,
     },
     intention: {
       type: String,
@@ -58,5 +60,9 @@ const sessionSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+sessionSchema.index({ userId: 1, date: -1 });
+sessionSchema.index({ userId: 1, section: 1, date: -1 });
+sessionSchema.index({ userId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Session', sessionSchema);

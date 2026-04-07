@@ -12,25 +12,28 @@ const Signup = () => {
     email: "",
     password: ""
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setForm({
       ...form,
-      [e.target.name === "user_email" ? "email" :
-      e.target.name === "user_password" ? "password" :
-      e.target.name]: e.target.value
+      [e.target.name]: e.target.value
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    setSubmitting(true);
+    setError("");
     try {
       const res = await api.post("/auth/signup", form);
       login(res.data);
       navigate("/");
     } catch (err) {
-      alert(err.response?.data?.message || "Signup failed");
+      setError(err.message || "Signup failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -48,6 +51,7 @@ const Signup = () => {
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
           <input
             type="text"
@@ -61,7 +65,7 @@ const Signup = () => {
 
           <input
             type="email"
-            name="user_email"
+            name="email"
             autoComplete="new-email"
             placeholder="Email"
             className="bg-white/10 text-white px-4 py-2 rounded-lg border border-white/10 focus:border-purple-500 outline-none"
@@ -70,7 +74,7 @@ const Signup = () => {
 
           <input
             type="password"
-            name="user_password"
+            name="password"
             autoComplete="new-password"
             placeholder="Password"
             className="bg-white/10 text-white px-4 py-2 rounded-lg border border-white/10 focus:border-purple-500 outline-none"
@@ -79,9 +83,10 @@ const Signup = () => {
 
           <button
             type="submit"
+            disabled={submitting}
             className="bg-gradient-to-r from-purple-600 to-blue-600 text-white py-2 rounded-lg hover:opacity-90 transition"
           >
-            Sign Up
+            {submitting ? "Creating..." : "Sign Up"}
           </button>
 
         </form>

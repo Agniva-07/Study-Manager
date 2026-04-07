@@ -1,10 +1,6 @@
 const mongoose = require('mongoose');
 
 const contractSchema = new mongoose.Schema({
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: false
-    },
     weekStart: {
         type: Date,
         required: true
@@ -24,5 +20,7 @@ const contractSchema = new mongoose.Schema({
     required: true
     },
 });
+
+contractSchema.index({ userId: 1, weekStart: -1 });
 
 module.exports = mongoose.model('Contract', contractSchema);

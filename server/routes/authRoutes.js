@@ -8,12 +8,13 @@ const {
 } = require('../controllers/authController');
 
 const { protect } = require('../middleware/authMiddleware');
+const { handleValidation } = require('../middleware/validationMiddleware');
+const { validateSignup, validateLogin } = require('../validators');
 
 router.get('/me', protect, getMe);
 
 // Routes
-router.post('/signup', signup);
-router.post('/login', login);
-router.get('/me', getMe); // will protect later
+router.post('/signup', validateSignup, handleValidation, signup);
+router.post('/login', validateLogin, handleValidation, login);
 
 module.exports = router;

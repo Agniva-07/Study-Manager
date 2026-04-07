@@ -10,18 +10,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { getDashboard, getSessionStats, getDashboardGravity } from '../api';
 import BuilderTower from "../components/BuilderTower";
 import Leaderboard from '../components/Leaderboard';
-
-const SECTION_COLORS = {
-  dsa: '#a855f7',
-  dev: '#00d4ff',
-  semester: '#10b981',
-};
-
-const SECTION_LABELS = {
-  dsa: 'DSA',
-  dev: 'Development',
-  semester: 'Semester',
-};
+import { SECTION_COLORS, SECTION_LABELS } from '../constants/domain';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -44,6 +33,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [gravity, setGravity] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -56,8 +46,9 @@ export default function Dashboard() {
         setDashboard(dashRes.data);
         setStats(statsRes.data);
         setGravity(gravRes.data);
+        setError('');
       } catch (err) {
-        console.error('Dashboard fetch error:', err);
+        setError(err?.message || 'Unable to load dashboard right now.');
       } finally {
         setLoading(false);
       }
@@ -66,6 +57,15 @@ export default function Dashboard() {
   }, []);
 
   if (loading) return <LoadingSpinner text="Loading your flow state..." />;
+  if (error) {
+    return (
+      <PageTransition>
+        <div className="page-container">
+          <div className="glass-card p-6 text-sm text-red-300">{error}</div>
+        </div>
+      </PageTransition>
+    );
+  }
 
   const chartData = dashboard?.sectionStats
     ? Object.entries(dashboard.sectionStats).map(([key, val]) => ({
@@ -84,6 +84,7 @@ export default function Dashboard() {
 
   const totalHours = dashboard?.totalTime ? (dashboard.totalTime / 60).toFixed(1) : '0';
   const signalPct = dashboard?.signalRatio ? Math.round(dashboard.signalRatio * 100) : 0;
+  const maxGravityScore = gravity?.scores ? Math.max(...Object.values(gravity.scores)) : 0;
 
   return (
     <PageTransition>
@@ -263,8 +264,7 @@ export default function Dashboard() {
             </p>
             <div className="flex flex-col gap-4">
               {gravity?.scores && Object.entries(gravity.scores).map(([sec, score], i) => {
-                const maxScore = Math.max(...Object.values(gravity.scores));
-                const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
+                const pct = maxGravityScore > 0 ? (score / maxGravityScore) * 100 : 0;
                 const isRec = sec === gravity.recommendation;
                 return (
                   <motion.div

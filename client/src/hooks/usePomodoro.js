@@ -109,7 +109,7 @@ export default function usePomodoro(initialSettings = DEFAULT_SETTINGS) {
         modeStartedAtRef.current = transitionNow;
         endTimeRef.current = transitionNow + nextDuration * 1000;
       }
-    }, 250);
+    }, 1000);
   }, [
     clearTimerInterval,
     isRunning,

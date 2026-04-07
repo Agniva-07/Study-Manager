@@ -97,6 +97,7 @@ function BuilderTower({ section, enableSound = false }) {
       })),
     [sessions, latestBrickId]
   );
+  const enableHeavyAnimation = towerSessions.length <= 80;
 
   const levelProgress = useMemo(() => {
     if (!data) return 0;
@@ -161,7 +162,7 @@ function BuilderTower({ section, enableSound = false }) {
                 }
               : { textShadow: '0 0 0px #ff7a7a', scale: 1 }
           }
-          transition={{ duration: 1.6, repeat: (data?.streak || 0) > 0 ? Infinity : 0 }}
+          transition={{ duration: 1.6, repeat: (data?.streak || 0) > 0 && enableHeavyAnimation ? 2 : 0 }}
         >
           {`🔥 Streak: ${data?.streak || 0}d`}
         </motion.span>
@@ -234,7 +235,7 @@ function BuilderTower({ section, enableSound = false }) {
                   <motion.div
                     initial={{ scaleY: 0, opacity: 0 }}
                     animate={
-                      session.isLatest
+                      session.isLatest && enableHeavyAnimation
                         ? {
                             scaleY: 1,
                             opacity: 1,
@@ -248,8 +249,8 @@ function BuilderTower({ section, enableSound = false }) {
                         : { scaleY: 1, opacity: 1 }
                     }
                     transition={
-                      session.isLatest
-                        ? { duration: 1.2, repeat: Infinity, ease: 'easeInOut', delay: session.delay }
+                      session.isLatest && enableHeavyAnimation
+                        ? { duration: 1.2, repeat: 2, ease: 'easeInOut', delay: session.delay }
                         : { duration: 0.35, delay: session.delay }
                     }
                     whileHover={{ scaleY: 1.08 }}

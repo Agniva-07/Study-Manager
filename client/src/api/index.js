@@ -21,6 +21,26 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+api.interceptors.response.use(
+  (response) => {
+    if (response?.data?.success === true && Object.prototype.hasOwnProperty.call(response.data, 'data')) {
+      return { ...response, data: response.data.data };
+    }
+    return response;
+  },
+  (error) => {
+    if (error?.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+    if (error?.response?.data?.success === false) {
+      const message = error.response.data.message || 'Request failed';
+      return Promise.reject(new Error(message));
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ─── Session Endpoints ─────────────────────────
 export const createSession = (data) => api.post('/sessions', data);
 export const updateSession = (id, data) => api.patch(`/sessions/${id}`, data);

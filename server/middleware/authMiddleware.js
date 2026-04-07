@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { fail } = require('../utils/response');
 
 const protect = async (req, res, next) => {
   try {
@@ -15,7 +16,7 @@ const protect = async (req, res, next) => {
 
     // 2. If no token
     if (!token) {
-      return res.status(401).json({ message: 'Not authorized, no token' });
+      return fail(res, 401, 'Not authorized, no token');
     }
 
     // 3. Verify token
@@ -25,7 +26,7 @@ const protect = async (req, res, next) => {
     const user = await User.findById(decoded.id).select('-password');
 
     if (!user) {
-      return res.status(401).json({ message: 'User not found' });
+      return fail(res, 401, 'User not found');
     }
 
     // 5. Attach user to request
@@ -34,7 +35,10 @@ const protect = async (req, res, next) => {
     next(); // move to next controller
 
   } catch (error) {
-    res.status(401).json({ message: 'Not authorized, token failed' });
+    if (error.name === 'TokenExpiredError') {
+      return fail(res, 401, 'Token expired');
+    }
+    return fail(res, 401, 'Not authorized, token failed');
   }
 };
 

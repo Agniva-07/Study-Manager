@@ -2,11 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageTransition, { cardVariants } from '../components/PageTransition';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { createContract, getContractReview, getCurrentContract } from '../api';
-
-const LABELS = { dsa: 'DSA', dev: 'Development', semester: 'Semester' };
-const COLORS = { dsa: '#a855f7', dev: '#00d4ff', semester: '#10b981' };
-const EMOJIS = { dsa: '🧠', dev: '💻', semester: '📚' };
+import { createContract, getContractReview } from '../api';
+import { SECTION_COLORS as COLORS, SECTION_EMOJIS as EMOJIS, SECTION_LABELS as LABELS } from '../constants/domain';
 const R = 40, C = 2 * Math.PI * R;
 
 export default function Contracts() {
@@ -15,13 +12,15 @@ export default function Contracts() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [goals, setGoals] = useState({ dsa: '', dev: '', semester: '' });
+  const [error, setError] = useState('');
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [revRes] = await Promise.allSettled([getContractReview(), getCurrentContract()]);
-      if (revRes.status === 'fulfilled') setReview(revRes.value.data);
-    } catch (e) { console.error(e); }
+      const revRes = await getContractReview();
+      setReview(revRes.data);
+      setError('');
+    } catch (e) { setError(e?.message || 'Unable to load contracts.'); }
     finally { setLoading(false); }
   };
 
@@ -36,7 +35,8 @@ export default function Contracts() {
       setGoals({ dsa: '', dev: '', semester: '' });
       setTab('review');
       await fetchData();
-    } catch (e) { console.error(e); }
+      setError('');
+    } catch (e) { setError(e?.message || 'Unable to create contract.'); }
     finally { setCreating(false); }
   };
 
@@ -59,6 +59,7 @@ export default function Contracts() {
             ))}
           </div>
         </motion.div>
+        {error ? <div className="glass-card p-3 mb-6 text-sm text-red-300">{error}</div> : null}
 
         <AnimatePresence mode="wait">
           {tab === 'review' && (

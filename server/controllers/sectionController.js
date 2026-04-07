@@ -1,9 +1,11 @@
 const Session = require('../models/Session');
+const { SECTIONS } = require('../constants/domain');
+const { ok, fail } = require('../utils/response');
 
-const VALID_SECTIONS = ['dsa', 'dev', 'semester'];
 const FLOOR_SIZE = 10;
 const XP_VALUES = {
   signal: 10,
+  mixed: 6,
   noise: 3,
 };
 const XP_PER_LEVEL = 100;
@@ -43,8 +45,8 @@ exports.getBuilderStats = async (req, res) => {
   try {
     const normalizedSection = normalizeSection(req.params.sectionName);
 
-    if (!VALID_SECTIONS.includes(normalizedSection)) {
-      return res.status(400).json({ message: 'Invalid sectionName' });
+    if (!SECTIONS.includes(normalizedSection)) {
+      return fail(res, 400, 'Invalid sectionName');
     }
 
     const sectionPattern = new RegExp(`^${escapeRegex(normalizedSection)}$`, 'i');
@@ -88,8 +90,14 @@ exports.getBuilderStats = async (req, res) => {
       _id: s._id,
       date: s.date || s.createdAt,
       duration: Number(s.duration) || 0,
-      quality: s.quality === 'signal' ? 'signal' : 'noise',
-      xp: s.quality === 'signal' ? XP_VALUES.signal : XP_VALUES.noise,
+      quality: s.quality === 'signal' || s.quality === 'mixed' || s.quality === 'noise'
+        ? s.quality
+        : 'noise',
+      xp: s.quality === 'signal'
+        ? XP_VALUES.signal
+        : s.quality === 'mixed'
+          ? XP_VALUES.mixed
+          : XP_VALUES.noise,
     }));
 
     const totalXP = sessions.reduce((sum, s) => sum + s.xp, 0);
@@ -119,7 +127,7 @@ exports.getBuilderStats = async (req, res) => {
       { title: 'Focused Mind 🧠', unlocked: totalUserSessions >= 50 },
     ];
 
-    return res.json({
+    return ok(res, {
       sectionName: normalizedSection,
       totalBricks,
       signalBricks,
@@ -136,6 +144,6 @@ exports.getBuilderStats = async (req, res) => {
       achievements,
     });
   } catch (err) {
-    return res.status(500).json({ message: 'Server error' });
+    return fail(res, 500, 'Server error');
   }
 };

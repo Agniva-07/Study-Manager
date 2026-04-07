@@ -1,4 +1,5 @@
 const Session = require('../models/Session');
+const { ok, fail } = require('../utils/response');
 
 const SECTIONS = ['dsa', 'dev', 'semester'];
 
@@ -16,12 +17,6 @@ function utcYmd(d) {
   return d.toISOString().split('T')[0];
 }
 
-function utcWeekdayName(date) {
-  const dow = date.getUTCDay();
-  const idx = dow === 0 ? 6 : dow - 1;
-  return WEEKDAY_MONDAY_FIRST[idx];
-}
-
 /**
  * GET /api/analytics/heatmap
  * Last 365 calendar days (UTC), one row per day with total + dominant section.
@@ -37,17 +32,34 @@ exports.getHeatmap = async (req, res) => {
     const rangeEnd = new Date(startDay);
     rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 365);
 
-    const sessions = await Session.find({
-      userId,
-      date: { $gte: startDay, $lt: rangeEnd },
-    })
-      .select('date section duration')
-      .lean();
+    const sessions = await Session.aggregate([
+      {
+        $match: {
+          userId,
+          date: { $gte: startDay, $lt: rangeEnd },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            date: {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: '$date',
+                timezone: 'UTC',
+              },
+            },
+            section: '$section',
+          },
+          total: { $sum: '$duration' },
+        },
+      },
+    ]);
 
     const dayMap = new Map();
 
     for (const s of sessions) {
-      const key = utcYmd(new Date(s.date));
+      const key = s._id.date;
       if (!dayMap.has(key)) {
         dayMap.set(key, {
           total: 0,
@@ -55,10 +67,11 @@ exports.getHeatmap = async (req, res) => {
         });
       }
       const entry = dayMap.get(key);
-      const mins = Math.max(0, Number(s.duration) || 0);
+      const mins = Math.max(0, Number(s.total) || 0);
       entry.total += mins;
-      if (s.section && Object.prototype.hasOwnProperty.call(entry.bySection, s.section)) {
-        entry.bySection[s.section] += mins;
+      const section = s._id.section;
+      if (section && Object.prototype.hasOwnProperty.call(entry.bySection, section)) {
+        entry.bySection[section] += mins;
       }
     }
 
@@ -90,9 +103,9 @@ exports.getHeatmap = async (req, res) => {
       });
     }
 
-    res.json(heatmap);
+    return ok(res, heatmap);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return fail(res, 500, error.message || 'Failed to load heatmap');
   }
 };
 
@@ -110,18 +123,33 @@ exports.getStreakDna = async (req, res) => {
     start28.setUTCDate(start28.getUTCDate() - 27);
     start28.setUTCHours(0, 0, 0, 0);
 
-    const sessions = await Session.find({
-      userId,
-      date: { $gte: start28, $lte: end28 },
-    })
-      .select('date duration')
-      .lean();
+    const sessions = await Session.aggregate([
+      {
+        $match: {
+          userId,
+          date: { $gte: start28, $lte: end28 },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: '%A',
+              date: '$date',
+              timezone: 'UTC',
+            },
+          },
+          total: { $sum: '$duration' },
+        },
+      },
+    ]);
 
     const totals = Object.fromEntries(WEEKDAY_MONDAY_FIRST.map((name) => [name, 0]));
 
     for (const s of sessions) {
-      const name = utcWeekdayName(new Date(s.date));
-      totals[name] += Math.max(0, Number(s.duration) || 0);
+      const name = s._id;
+      if (totals[name] == null) continue;
+      totals[name] += Math.max(0, Number(s.total) || 0);
     }
 
     const weakDays = WEEKDAY_MONDAY_FIRST.filter((d) => totals[d] < 30);
@@ -133,9 +161,9 @@ exports.getStreakDna = async (req, res) => {
       )}. Try one short focused block on those days to even things out.`;
     }
 
-    res.json({ weakDays, suggestion });
+    return ok(res, { weakDays, suggestion });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return fail(res, 500, error.message || 'Failed to load streak DNA');
   }
 };
 
@@ -147,9 +175,30 @@ exports.getEnergyProfile = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const sessions = await Session.find({ userId })
-      .select('startHour date quality duration')
-      .lean();
+    const sessions = await Session.aggregate([
+      { $match: { userId } },
+      {
+        $project: {
+          hour: {
+            $cond: [
+              { $and: [{ $gte: ['$startHour', 0] }, { $lte: ['$startHour', 23] }] },
+              '$startHour',
+              { $hour: '$date' },
+            ],
+          },
+          quality: 1,
+        },
+      },
+      {
+        $group: {
+          _id: '$hour',
+          signalCount: {
+            $sum: { $cond: [{ $eq: ['$quality', 'signal'] }, 1, 0] },
+          },
+          totalSessions: { $sum: 1 },
+        },
+      },
+    ]);
 
     const byHour = Array.from({ length: 24 }, (_, h) => ({
       hour: h,
@@ -158,15 +207,10 @@ exports.getEnergyProfile = async (req, res) => {
     }));
 
     for (const s of sessions) {
-      let hour = s.startHour;
-      if (hour == null || hour < 0 || hour > 23) {
-        hour = new Date(s.date).getUTCHours();
-      }
-      const row = byHour[hour];
-      row.totalSessions += 1;
-      if (s.quality === 'signal') {
-        row.signalCount += 1;
-      }
+      const hour = Number(s._id);
+      if (hour < 0 || hour > 23) continue;
+      byHour[hour].totalSessions = s.totalSessions || 0;
+      byHour[hour].signalCount = s.signalCount || 0;
     }
 
     const result = byHour.map((row) => ({
@@ -178,9 +222,9 @@ exports.getEnergyProfile = async (req, res) => {
       totalSessions: row.totalSessions,
     }));
 
-    res.json(result);
+    return ok(res, result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return fail(res, 500, error.message || 'Failed to load energy profile');
   }
 };
 
@@ -191,27 +235,32 @@ exports.getSummary = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const sessions = await Session.find({ userId }).select('duration quality').lean();
+    const [summary] = await Session.aggregate([
+      { $match: { userId } },
+      {
+        $group: {
+          _id: null,
+          totalMinutes: { $sum: '$duration' },
+          signalMinutes: {
+            $sum: { $cond: [{ $eq: ['$quality', 'signal'] }, '$duration', 0] },
+          },
+          totalSessions: { $sum: 1 },
+        },
+      },
+    ]);
 
-    let totalMinutes = 0;
-    let signalMinutes = 0;
-
-    for (const s of sessions) {
-      const d = Math.max(0, Number(s.duration) || 0);
-      totalMinutes += d;
-      if (s.quality === 'signal') signalMinutes += d;
-    }
-
-    const totalSessions = sessions.length;
+    const totalMinutes = Math.round(summary?.totalMinutes || 0);
+    const signalMinutes = summary?.signalMinutes || 0;
+    const totalSessions = summary?.totalSessions || 0;
     const averageSignalPercent =
       totalMinutes === 0 ? 0 : Math.round((signalMinutes / totalMinutes) * 100);
 
-    res.json({
-      totalMinutes: Math.round(totalMinutes),
+    return ok(res, {
+      totalMinutes,
       averageSignalPercent,
       totalSessions,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return fail(res, 500, error.message || 'Failed to load summary');
   }
 };

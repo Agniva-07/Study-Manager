@@ -11,6 +11,8 @@ const Login = () => {
     email: "",
     password: ""
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setForm({
@@ -21,13 +23,16 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    setSubmitting(true);
+    setError("");
     try {
       const res = await api.post("/auth/login", form);
       login(res.data);
       navigate("/");
     } catch (err) {
-      alert(err.response?.data?.message || "Login failed");
+      setError(err.message || "Login failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -45,6 +50,7 @@ const Login = () => {
     </p>
 
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
       <input
         type="email"
@@ -66,9 +72,10 @@ const Login = () => {
 
       <button
         type="submit"
+        disabled={submitting}
         className="bg-gradient-to-r from-purple-600 to-blue-600 py-3 rounded-xl text-white font-medium hover:scale-[1.02] transition"
       > 
-        Login
+        {submitting ? "Logging in..." : "Login"}
       </button>
 
     </form>

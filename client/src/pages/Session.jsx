@@ -4,12 +4,14 @@ import PageTransition, { cardVariants } from '../components/PageTransition';
 import PomodoroTimer from '../components/PomodoroTimer';
 import usePageVisibility from '../hooks/usePageVisibility';
 import { createSession, updateSession } from '../api';
+import { SECTION_COLORS, SECTION_EMOJIS, SECTION_LABELS, SECTIONS } from '../constants/domain';
 
-const SECTIONS = [
-  { key: 'dsa', label: 'DSA', color: '#a855f7', emoji: '🧠' },
-  { key: 'dev', label: 'Development', color: '#00d4ff', emoji: '💻' },
-  { key: 'semester', label: 'Semester', color: '#10b981', emoji: '📚' },
-];
+const SECTION_OPTIONS = SECTIONS.map((key) => ({
+  key,
+  label: SECTION_LABELS[key],
+  color: SECTION_COLORS[key],
+  emoji: SECTION_EMOJIS[key],
+}));
 
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
@@ -24,6 +26,7 @@ export default function Session() {
   const [elapsed, setElapsed] = useState(0);
   const [sessionId, setSessionId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const [focusStats, setFocusStats] = useState({
     pomodorosCompleted: 0,
@@ -72,8 +75,9 @@ export default function Session() {
       setSessionAwayTime(0);
 
       setPhase('running');
+      setError('');
     } catch (err) {
-      console.error(err);
+      setError(err?.message || 'Unable to start session.');
     }
   };
 
@@ -107,8 +111,9 @@ export default function Session() {
       });
 
       setPhase('done');
+      setError('');
     } catch (err) {
-      console.error(err);
+      setError(err?.message || 'Failed to save session.');
     } finally {
       setSubmitting(false);
     }
@@ -116,6 +121,7 @@ export default function Session() {
 
   const resetSession = () => {
     setPhase('setup');
+    setError('');
 
     setTimeout(() => {
       setSection('');
@@ -136,6 +142,9 @@ export default function Session() {
   return (
     <PageTransition>
       <div className="flex flex-col items-center justify-center min-h-[80vh]">
+        {error ? (
+          <div className="glass-card mb-4 p-3 w-full max-w-md text-sm text-red-300">{error}</div>
+        ) : null}
 
         <AnimatePresence mode="wait">
 
@@ -152,7 +161,7 @@ export default function Session() {
           </label>
 
           <div className="flex gap-3">
-            {SECTIONS.map((s) => (
+            {SECTION_OPTIONS.map((s) => (
               <button
                 key={s.key}
                 onClick={() => setSection(s.key)}

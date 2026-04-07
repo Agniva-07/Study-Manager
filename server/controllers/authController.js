@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { ok, fail } = require('../utils/response');
 
 // 🔐 Generate JWT Token
 const generateToken = (userId) => {
@@ -15,11 +16,12 @@ const generateToken = (userId) => {
 exports.signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    const normalizedEmail = String(email).trim().toLowerCase();
 
     // 1. Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+      return fail(res, 400, 'User already exists');
     }
 
     // 2. Hash password
@@ -29,7 +31,7 @@ exports.signup = async (req, res) => {
     // 3. Create user
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password: hashedPassword
     });
 
@@ -37,17 +39,17 @@ exports.signup = async (req, res) => {
     const token = generateToken(user._id);
 
     // 5. Send response
-    res.status(201).json({
+    return ok(res, {
       token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email
       }
-    });
+    }, 201);
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return fail(res, 500, error.message || 'Signup failed');
   }
 };
 
@@ -55,24 +57,25 @@ exports.signup = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email).trim().toLowerCase();
 
     // 1. Check user exists
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return fail(res, 400, 'Invalid credentials');
     }
 
     // 2. Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return fail(res, 400, 'Invalid credentials');
     }
 
     // 3. Generate token
     const token = generateToken(user._id);
 
     // 4. Send response
-    res.json({
+    return ok(res, {
       token,
       user: {
         id: user._id,
@@ -82,7 +85,7 @@ exports.login = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return fail(res, 500, error.message || 'Login failed');
   }
 };
 
@@ -91,8 +94,8 @@ exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
 
-    res.json(user);
+    return ok(res, user);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return fail(res, 500, error.message || 'Failed to load user');
   }
 };

@@ -79,6 +79,29 @@ export default function Roadmap() {
 
   const canSubmit = goal.trim() && dailyTime && weeks && !loading;
 
+  const normalizeRoadmap = (payload) => {
+    const rawWeeks = Array.isArray(payload?.weeks) ? payload.weeks : [];
+    return {
+      weeks: rawWeeks.map((week, index) => ({
+        week: Number(week?.week) || index + 1,
+        title: typeof week?.title === 'string' ? week.title : `Week ${index + 1}`,
+        topics: Array.isArray(week?.topics)
+          ? week.topics.map((topic) => {
+              if (typeof topic === 'string') {
+                return { name: topic, difficulty: 'medium' };
+              }
+              return {
+                name: typeof topic?.name === 'string' ? topic.name : 'Topic',
+                difficulty: ['easy', 'medium', 'hard'].includes(String(topic?.difficulty).toLowerCase())
+                  ? String(topic.difficulty).toLowerCase()
+                  : 'medium',
+              };
+            })
+          : [],
+      })),
+    };
+  };
+
   const handleGenerate = async () => {
     if (!canSubmit) return;
     setLoading(true);
@@ -106,10 +129,11 @@ export default function Roadmap() {
         return;
       }
 
-      setRoadmap(data);
+      setRoadmap(normalizeRoadmap(data));
     } catch (err) {
       console.error('Roadmap generation failed:', err);
       setError(
+        err.message ||
         err.response?.data?.error ||
         'Failed to generate roadmap. Make sure the backend server is running.'
       );

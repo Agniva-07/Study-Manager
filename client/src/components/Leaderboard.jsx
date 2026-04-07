@@ -31,6 +31,17 @@ export default function Leaderboard() {
     return <div className="glass-card p-4 text-sm text-gray-400">Loading leaderboard...</div>;
   }
 
+  if (!topRows.length) {
+    return (
+      <div className="glass-card p-6">
+        <h3 className="text-sm font-semibold uppercase tracking-widest mb-2" style={{ color: '#8888aa' }}>
+          Leaderboard
+        </h3>
+        <p className="text-sm text-gray-400">No ranking data yet.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="glass-card p-6">
       <h3 className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: '#8888aa' }}>
