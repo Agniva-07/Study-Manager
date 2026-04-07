@@ -29,6 +29,12 @@ export const getDashboard = () => api.get('/sessions/dashboard');
 export const getDashboardTrends = () => api.get('/sessions/dashboard/trends');
 export const getDashboardGravity = () => api.get('/sessions/dashboard/gravity');
 
+// ─── Analytics Endpoints ───────────────────────
+export const getAnalyticsHeatmap = () => api.get('/analytics/heatmap');
+export const getAnalyticsStreakDna = () => api.get('/analytics/streak-dna');
+export const getAnalyticsEnergyProfile = () => api.get('/analytics/energy-profile');
+export const getAnalyticsSummary = () => api.get('/analytics/summary');
+
 // ─── Contract Endpoints ────────────────────────
 export const createContract = (data) => api.post('/contracts', data);
 export const getCurrentContract = () => api.get('/contracts/current');

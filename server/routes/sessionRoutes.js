@@ -7,9 +7,24 @@ const { protect } = require('../middleware/authMiddleware');
 // ✅ CREATE SESSION
 router.post('/', protect, async (req, res) => {
     try {
+        const { startTime: bodyStartTime, startHour: _bodyStartHour, ...rest } = req.body;
+
+        let derivedHour;
+        if (bodyStartTime != null && bodyStartTime !== '') {
+            derivedHour = new Date(bodyStartTime).getHours();
+        } else if (rest.date != null && rest.date !== '') {
+            derivedHour = new Date(rest.date).getHours();
+        } else {
+            derivedHour = new Date().getHours();
+        }
+
         const session = new Session({
-            ...req.body,
-            userId: req.user._id
+            ...rest,
+            userId: req.user._id,
+            startHour: derivedHour,
+            ...(bodyStartTime != null && bodyStartTime !== ''
+                ? { startTime: new Date(bodyStartTime) }
+                : {}),
         });
 
         await session.save();

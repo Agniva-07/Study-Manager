@@ -1,55 +1,62 @@
 const mongoose = require('mongoose');
 
-const sessionSchema = new mongoose.Schema({
+const sessionSchema = new mongoose.Schema(
+  {
     userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        required: false // for now (no auth yet)
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
     },
     section: {
-        type: String, // dsa / dev / semester
-        required: true
+      type: String,
+      enum: ['dsa', 'dev', 'semester'],
+      required: true,
     },
     duration: {
-        type: Number, // planned minutes
-        required: true
+      type: Number,
+      required: true,
     },
     actualFocusTime: {
-        type: Number,
-        default: 0
+      type: Number,
+      default: 0,
     },
     quality: {
-        type: String, // "signal" or "noise"
+      type: String,
     },
     intention: {
-        type: String
+      type: String,
     },
     intentionMet: {
-        type: String // yes / partially / no
+      type: String,
     },
+    /** When the user started the session; used to derive startHour */
+    startTime: {
+      type: Date,
+    },
+    /** Hour (0–23) derived from startTime (or date) on create */
     startHour: {
-        type: Number
+      type: Number,
+      min: 0,
+      max: 23,
     },
     awayEvents: {
-        type: Number,
-        default: 0
+      type: Number,
+      default: 0,
+    },
+    pomodorosCompleted: {
+      type: Number,
+      default: 0,
     },
     date: {
-        type: Date,
-        default: Date.now
+      type: Date,
+      default: Date.now,
     },
     contextNote: {
-    type: String,
-    default: ""
+      type: String,
+      default: '',
     },
-    section: {
-    type: String,
-    enum: ["dsa", "dev", "semester"]
-    },
-    userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-    },
-},{ timestamps: true });
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model('Session', sessionSchema);

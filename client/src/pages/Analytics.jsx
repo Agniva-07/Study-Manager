@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
   AreaChart, Area, CartesianGrid,
 } from 'recharts';
 import PageTransition, { cardVariants } from '../components/PageTransition';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { getDashboardTrends } from '../api';
+import HeatmapCalendar from '../components/HeatmapCalendar';
+import StreakDNA from '../components/StreakDNA';
+import EnergyChart from '../components/EnergyChart';
+import { getDashboardTrends, getAnalyticsSummary } from '../api';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -26,20 +29,29 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Analytics() {
   const [trends, setTrends] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchTrends = async () => {
+    const load = async () => {
       try {
-        const res = await getDashboardTrends();
-        setTrends(res.data.daily || []);
+        const [trendsRes, summaryRes] = await Promise.allSettled([
+          getDashboardTrends(),
+          getAnalyticsSummary(),
+        ]);
+        if (trendsRes.status === 'fulfilled') {
+          setTrends(trendsRes.value.data?.daily || []);
+        }
+        if (summaryRes.status === 'fulfilled') {
+          setSummary(summaryRes.value.data || null);
+        }
       } catch (err) {
-        console.error('Trends fetch error:', err);
+        console.error('Analytics fetch error:', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchTrends();
+    load();
   }, []);
 
   if (loading) return <LoadingSpinner text="Analyzing patterns..." />;
@@ -54,7 +66,6 @@ export default function Analytics() {
   const totalSignal = chartData.reduce((s, d) => s + d.signal, 0);
   const totalNoise = totalFocus - totalSignal;
   const avgDaily = chartData.length > 0 ? Math.round(totalFocus / chartData.length) : 0;
-  const streak = chartData.length;
 
   return (
     <PageTransition>
@@ -69,18 +80,54 @@ export default function Analytics() {
           </p>
         </motion.div>
 
-        {/* Quick stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {/* All-time summary (from /analytics/summary) */}
+        {summary && (
+          <motion.div
+            variants={cardVariants}
+            className="rounded-2xl p-6 mb-8 flex flex-wrap gap-6 justify-between items-center bg-white/5 border border-white/10 shadow-lg transition-transform duration-300 hover:scale-[1.02]"
+          >
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: '#555577' }}>
+                All-time total
+              </p>
+              <p className="text-lg font-bold font-mono" style={{ color: '#a855f7' }}>
+                {summary.totalMinutes ?? 0} min
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: '#555577' }}>
+                Avg signal
+              </p>
+              <p className="text-lg font-bold font-mono" style={{ color: '#00d4ff' }}>
+                {summary.averageSignalPercent ?? 0}%
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: '#555577' }}>
+                Sessions logged
+              </p>
+              <p className="text-lg font-bold font-mono" style={{ color: '#10b981' }}>
+                {summary.totalSessions ?? 0}
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Top stats */}
+        <div className="grid grid-cols-3 gap-4 mt-8">
           {[
             { label: 'Total Focus', value: `${(totalFocus / 60).toFixed(1)}h`, color: '#a855f7' },
-            { label: 'Signal Time', value: `${(totalSignal / 60).toFixed(1)}h`, color: '#00d4ff' },
             { label: 'Avg Daily', value: `${avgDaily}m`, color: '#10b981' },
-            { label: 'Days Active', value: streak, color: '#f59e0b' },
+            {
+              label: 'Signal Ratio',
+              value: `${totalFocus > 0 ? Math.round((totalSignal / totalFocus) * 100) : 0}%`,
+              color: '#00d4ff',
+            },
           ].map((stat, i) => (
             <motion.div
-              key={stat.label}
+              key={`${stat.label}-${i}`}
               variants={cardVariants}
-              className="glass-card p-4 text-center"
+              className="rounded-2xl p-6 text-center bg-white/5 border border-white/10 shadow-lg transition-transform duration-300 hover:scale-[1.02]"
             >
               <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: '#555577' }}>
                 {stat.label}
@@ -92,8 +139,20 @@ export default function Analytics() {
           ))}
         </div>
 
+        <div className="mt-8">
+          <HeatmapCalendar />
+        </div>
+
+        <div className="grid grid-cols-2 gap-6 mt-8">
+          <StreakDNA />
+          <EnergyChart />
+        </div>
+
         {/* Main trend chart */}
-        <motion.div variants={cardVariants} className="glass-card p-6 mb-8">
+        <motion.div
+          variants={cardVariants}
+          className="rounded-2xl p-6 mt-8 bg-white/5 border border-white/10 shadow-lg transition-transform duration-300 hover:scale-[1.02]"
+        >
           <h3 className="text-sm font-semibold uppercase tracking-widest mb-6" style={{ color: '#8888aa' }}>
             Daily Progress
           </h3>
@@ -156,7 +215,10 @@ export default function Analytics() {
         </motion.div>
 
         {/* Signal vs Noise Breakdown */}
-        <motion.div variants={cardVariants} className="glass-card p-6">
+        <motion.div
+          variants={cardVariants}
+          className="rounded-2xl p-6 mt-8 bg-white/5 border border-white/10 shadow-lg transition-transform duration-300 hover:scale-[1.02]"
+        >
           <h3 className="text-sm font-semibold uppercase tracking-widest mb-6" style={{ color: '#8888aa' }}>
             Signal vs Noise Breakdown
           </h3>
