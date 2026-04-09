@@ -57,7 +57,10 @@ exports.generatePlan = async (req, res) => {
       userId: req.user._id,
     });
 
-    return ok(res, plan.roadmap);
+    console.log('FINAL ROADMAP RESPONSE:', plan.roadmap);
+    return ok(res, {
+      weeks: Array.isArray(plan?.roadmap?.weeks) ? plan.roadmap.weeks : [],
+    });
   } catch (error) {
     console.error('generatePlan error:', error);
     return fail(res, 500, error.message || 'Failed to generate plan');
