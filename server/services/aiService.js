@@ -1,8 +1,14 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
-const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+const genAI = process.env.GEMINI_API_KEY
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
 
+// ⏳ delay helper
+const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// 🧠 fallback
 function buildFallbackRoadmap(goal, dailyTime, durationWeeks) {
   const safeGoal = typeof goal === 'string' && goal.trim() ? goal.trim() : 'Your goal';
   const safeWeeks = Math.max(1, Number(durationWeeks) || 4);
@@ -21,10 +27,11 @@ function buildFallbackRoadmap(goal, dailyTime, durationWeeks) {
   };
 }
 
+// 🧼 safe JSON parser
 function safeJsonExtract(text) {
   const clean = String(text || '').replace(/```json|```/g, '').trim();
+  const match = clean.match(/\{[\s\S]*\}/);
 
-  const match = clean.match(/\{[\s\S]*\}/); // extract JSON block
   if (!match) return null;
 
   try {
@@ -34,15 +41,17 @@ function safeJsonExtract(text) {
   }
 }
 
-// 🔁 Retry wrapper for Gemini (handles 503 errors)
+// 🚀 SMART RETRY WITH DELAY
 async function generateWithRetry(model, prompt, retries = 2) {
   try {
     return await model.generateContent(prompt);
   } catch (err) {
     console.log("Gemini error:", err.message);
 
-    if (retries > 0) {
-      console.log("🔁 Retrying Gemini...");
+    // 🔥 retry only for 503 (server busy)
+    if ((err?.status === 503 || err.message.includes('503')) && retries > 0) {
+      console.log("🔁 Retrying after delay...");
+      await delay(2000); // ⏳ 2 sec wait (IMPORTANT)
       return generateWithRetry(model, prompt, retries - 1);
     }
 
@@ -50,6 +59,7 @@ async function generateWithRetry(model, prompt, retries = 2) {
   }
 }
 
+// 🎯 MAIN FUNCTION
 async function generateRoadmap(goal, dailyTime, durationWeeks) {
   console.log('🔥 generateRoadmap called', {
     durationWeeks,
@@ -58,7 +68,6 @@ async function generateRoadmap(goal, dailyTime, durationWeeks) {
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
   });
 
-  // If Gemini isn't configured in production, don't crash the endpoint.
   if (!genAI) {
     console.warn('GEMINI_API_KEY missing – returning fallback roadmap.');
     return buildFallbackRoadmap(goal, dailyTime, durationWeeks);
@@ -98,24 +107,22 @@ Keep it progressive and practical.
     const result = await generateWithRetry(model, prompt);
     const response = result.response;
 
-    const candidateCount = Array.isArray(response?.candidates) ? response.candidates.length : 0;
     const parts = response?.candidates?.[0]?.content?.parts || [];
     const text = parts.map(p => p.text).join('');
-    console.log('Gemini response meta', {
-      candidateCount,
-      hasText: typeof text === 'string' && text.length > 0,
-      textLen: typeof text === 'string' ? text.length : 0,
-    });
+
+    console.log('Gemini response length:', text.length);
 
     const parsed = safeJsonExtract(text);
+
     if (!parsed || !Array.isArray(parsed.weeks)) {
-      console.warn('Gemini returned invalid JSON shape – using fallback roadmap.');
+      console.warn('Invalid JSON – using fallback');
       return buildFallbackRoadmap(goal, dailyTime, durationWeeks);
     }
 
     return parsed;
+
   } catch (err) {
-    console.error('AI Service Error:', err);
+    console.error('AI Service Error:', err.message);
     return buildFallbackRoadmap(goal, dailyTime, durationWeeks);
   }
 }
