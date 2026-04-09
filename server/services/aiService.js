@@ -1,16 +1,55 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-require("dotenv").config();
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+require('dotenv').config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+
+function buildFallbackRoadmap(goal, dailyTime, durationWeeks) {
+  const safeGoal = typeof goal === 'string' && goal.trim() ? goal.trim() : 'Your goal';
+  const safeWeeks = Math.max(1, Number(durationWeeks) || 4);
+  const safeDaily = Math.max(15, Number(dailyTime) || 60);
+
+  return {
+    weeks: Array.from({ length: safeWeeks }, (_, i) => ({
+      week: i + 1,
+      title: `Week ${i + 1}`,
+      topics: [
+        { name: `${safeGoal}: fundamentals`, difficulty: i === 0 ? 'easy' : 'medium' },
+        { name: `${safeDaily} min focused practice`, difficulty: 'medium' },
+        { name: `${safeGoal}: build + review`, difficulty: i >= 2 ? 'hard' : 'medium' },
+      ],
+    })),
+  };
+}
+
+function safeJsonExtract(text) {
+  const clean = String(text || '').replace(/```json|```/g, '').trim();
+  if (!clean) return null;
+  try {
+    return JSON.parse(clean);
+  } catch {
+    return null;
+  }
+}
 
 async function generateRoadmap(goal, dailyTime, durationWeeks) {
-  console.log("🔥 FUNCTION CALLED");
-  // 1. Updated to a supported model version
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash" 
+  console.log('🔥 generateRoadmap called', {
+    durationWeeks,
+    dailyTime,
+    goalLen: typeof goal === 'string' ? goal.length : 0,
+    hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
   });
 
- const prompt = `
+  // If Gemini isn't configured in production, don't crash the endpoint.
+  if (!genAI) {
+    console.warn('GEMINI_API_KEY missing – returning fallback roadmap.');
+    return buildFallbackRoadmap(goal, dailyTime, durationWeeks);
+  }
+
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+  });
+
+  const prompt = `
 You are a highly structured study planner AI.
 
 Create a ${durationWeeks}-week roadmap for:
@@ -40,24 +79,24 @@ Keep it progressive and practical.
     const result = await model.generateContent(prompt);
     const response = result.response;
 
+    const candidateCount = Array.isArray(response?.candidates) ? response.candidates.length : 0;
     const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text || typeof text !== 'string') {
-      throw new Error('Empty or invalid AI response');
+    console.log('Gemini response meta', {
+      candidateCount,
+      hasText: typeof text === 'string' && text.length > 0,
+      textLen: typeof text === 'string' ? text.length : 0,
+    });
+
+    const parsed = safeJsonExtract(text);
+    if (!parsed || !Array.isArray(parsed.weeks)) {
+      console.warn('Gemini returned invalid JSON shape – using fallback roadmap.');
+      return buildFallbackRoadmap(goal, dailyTime, durationWeeks);
     }
 
-    const cleanText = text.replace(/```json|```/g, "").trim();
-    if (!cleanText) {
-      throw new Error('Empty AI response content');
-    }
-
-    try {
-      return JSON.parse(cleanText);
-    } catch (parseError) {
-      throw new Error("Invalid JSON from AI");
-    }
+    return parsed;
   } catch (err) {
-    console.error("AI Service Error:", err.message);
-    throw new Error("Failed to generate roadmap");
+    console.error('AI Service Error:', err);
+    return buildFallbackRoadmap(goal, dailyTime, durationWeeks);
   }
 }
 

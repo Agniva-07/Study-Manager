@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+function resolveBaseUrl() {
+  const raw = import.meta.env.VITE_API_URL;
+  if (raw && typeof raw === 'string') return raw.replace(/\/+$/, '');
+  // Fallback to same-origin (useful for local proxies / previews)
+  return window.location.origin;
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL + '/api',
+  baseURL: `${resolveBaseUrl()}/api`,
   headers: {
     'Content-Type': 'application/json',
   },

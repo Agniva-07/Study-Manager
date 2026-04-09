@@ -23,7 +23,8 @@ function utcYmd(d) {
  */
 exports.getHeatmap = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id;
+    if (!userId) return ok(res, []);
 
     const startDay = new Date();
     startDay.setUTCHours(0, 0, 0, 0);
@@ -105,17 +106,22 @@ exports.getHeatmap = async (req, res) => {
 
     return ok(res, heatmap);
   } catch (error) {
-    return fail(res, 500, error.message || 'Failed to load heatmap');
+    console.error('Analytics.getHeatmap error:', error);
+    return ok(res, []);
   }
 };
 
 /**
  * GET /api/analytics/streak-dna
- * Last 28 days (UTC); weakDays = weekday names with < 30 total minutes.
+ * Last 28 days (UTC); weakDays computed relative to user's own average.
  */
 exports.getStreakDna = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id;
+    console.log('GET /api/analytics/streak-dna', { userId: userId?.toString?.() || null });
+    if (!userId) {
+      return ok(res, { weakDays: [], suggestion: 'Log in to see your streak insights.' });
+    }
 
     const end28 = new Date();
     end28.setUTCHours(23, 59, 59, 999);
@@ -152,18 +158,71 @@ exports.getStreakDna = async (req, res) => {
       totals[name] += Math.max(0, Number(s.total) || 0);
     }
 
-    const weakDays = WEEKDAY_MONDAY_FIRST.filter((d) => totals[d] < 30);
-
-    let suggestion = 'Nice work—you are spreading time across the week.';
-    if (weakDays.length > 0) {
-      suggestion = `You logged under 30 minutes on ${weakDays.join(
-        ', '
-      )}. Try one short focused block on those days to even things out.`;
+    const totalMinutesAll = WEEKDAY_MONDAY_FIRST.reduce((sum, d) => sum + (totals[d] || 0), 0);
+    if (totalMinutesAll <= 0) {
+      return ok(res, {
+        weakDays: [],
+        suggestion: 'Not enough data yet. Log a few sessions over different days to unlock insights.',
+      });
     }
+
+    // Average over all 7 weekdays (zeros included) to reflect consistency
+    const avg = totalMinutesAll / 7;
+    const threshold = avg * 0.6;
+
+    const weekdayRows = WEEKDAY_MONDAY_FIRST.map((full) => ({
+      full,
+      short: full.slice(0, 3),
+      minutes: totals[full] || 0,
+    }));
+
+    const min = Math.min(...weekdayRows.map((r) => r.minutes));
+    const max = Math.max(...weekdayRows.map((r) => r.minutes));
+    const variationExists = max > min;
+
+    let weak = weekdayRows.filter((r) => r.minutes < threshold);
+
+    // Ensure meaningful output when variation exists: pick 1–2 lowest days even if threshold misses.
+    if (weak.length === 0 && variationExists) {
+      const sorted = [...weekdayRows].sort((a, b) => a.minutes - b.minutes);
+      const first = sorted[0];
+      const second = sorted[1];
+      weak = [first];
+
+      // Add second weak day if it is also notably below average, or far below the max.
+      if (
+        second &&
+        (second.minutes < avg * 0.85 || (max > 0 && second.minutes / max < 0.55))
+      ) {
+        weak.push(second);
+      }
+    }
+
+    // If everything is equal (or close enough), return no weak days.
+    if (!variationExists) {
+      return ok(res, {
+        weakDays: [],
+        suggestion: 'Your week looks perfectly balanced. Keep this steady rhythm going.',
+      });
+    }
+
+    const weakDays = weak
+      .sort((a, b) => a.minutes - b.minutes)
+      .map((r) => r.short);
+
+    const weakList = weakDays.join(' and ');
+    const suggestion =
+      weakDays.length > 0
+        ? `Your consistency drops on ${weakList}. Try scheduling lighter sessions on those days instead of skipping.`
+        : 'Nice work—your consistency is strong across the whole week.';
 
     return ok(res, { weakDays, suggestion });
   } catch (error) {
-    return fail(res, 500, error.message || 'Failed to load streak DNA');
+    console.error('Analytics.getStreakDna error:', error);
+    return ok(res, {
+      weakDays: [],
+      suggestion: 'Could not load streak insights yet. Try again in a moment.',
+    });
   }
 };
 
@@ -173,7 +232,8 @@ exports.getStreakDna = async (req, res) => {
  */
 exports.getEnergyProfile = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id;
+    if (!userId) return ok(res, []);
 
     const sessions = await Session.aggregate([
       { $match: { userId } },
@@ -224,7 +284,8 @@ exports.getEnergyProfile = async (req, res) => {
 
     return ok(res, result);
   } catch (error) {
-    return fail(res, 500, error.message || 'Failed to load energy profile');
+    console.error('Analytics.getEnergyProfile error:', error);
+    return ok(res, []);
   }
 };
 
@@ -233,7 +294,14 @@ exports.getEnergyProfile = async (req, res) => {
  */
 exports.getSummary = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?._id;
+    if (!userId) {
+      return ok(res, {
+        totalMinutes: 0,
+        averageSignalPercent: 0,
+        totalSessions: 0,
+      });
+    }
 
     const [summary] = await Session.aggregate([
       { $match: { userId } },
@@ -261,6 +329,11 @@ exports.getSummary = async (req, res) => {
       totalSessions,
     });
   } catch (error) {
-    return fail(res, 500, error.message || 'Failed to load summary');
+    console.error('Analytics.getSummary error:', error);
+    return ok(res, {
+      totalMinutes: 0,
+      averageSignalPercent: 0,
+      totalSessions: 0,
+    });
   }
 };
