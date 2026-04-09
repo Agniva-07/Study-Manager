@@ -57,7 +57,7 @@ exports.generatePlan = async (req, res) => {
       userId: req.user._id,
     });
 
-    return ok(res, plan);
+    return ok(res, plan.roadmap);
   } catch (error) {
     console.error('generatePlan error:', error);
     return fail(res, 500, error.message || 'Failed to generate plan');

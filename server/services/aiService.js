@@ -23,11 +23,30 @@ function buildFallbackRoadmap(goal, dailyTime, durationWeeks) {
 
 function safeJsonExtract(text) {
   const clean = String(text || '').replace(/```json|```/g, '').trim();
-  if (!clean) return null;
+
+  const match = clean.match(/\{[\s\S]*\}/); // extract JSON block
+  if (!match) return null;
+
   try {
-    return JSON.parse(clean);
+    return JSON.parse(match[0]);
   } catch {
     return null;
+  }
+}
+
+// 🔁 Retry wrapper for Gemini (handles 503 errors)
+async function generateWithRetry(model, prompt, retries = 2) {
+  try {
+    return await model.generateContent(prompt);
+  } catch (err) {
+    console.log("Gemini error:", err.message);
+
+    if (retries > 0) {
+      console.log("🔁 Retrying Gemini...");
+      return generateWithRetry(model, prompt, retries - 1);
+    }
+
+    throw err;
   }
 }
 
@@ -76,11 +95,12 @@ Keep it progressive and practical.
 `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await generateWithRetry(model, prompt);
     const response = result.response;
 
     const candidateCount = Array.isArray(response?.candidates) ? response.candidates.length : 0;
-    const text = response?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const parts = response?.candidates?.[0]?.content?.parts || [];
+    const text = parts.map(p => p.text).join('');
     console.log('Gemini response meta', {
       candidateCount,
       hasText: typeof text === 'string' && text.length > 0,
