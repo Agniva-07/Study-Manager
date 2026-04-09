@@ -4,13 +4,20 @@ const planSchema = new mongoose.Schema({
     goal: String,
     dailyTime: Number,
     durationWeeks: Number,
-    roadmap: [
-        {
+    roadmap: {
+        weeks: [
+          {
             week: Number,
-            topic: String,
-            sessions: Number
-        }
-    ],
+            title: String,
+            topics: [
+              {
+                name: String,
+                difficulty: String,
+              },
+            ],
+          },
+        ],
+      },
     createdAt: {
         type: Date,
         default: Date.now
