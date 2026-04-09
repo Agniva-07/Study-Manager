@@ -65,23 +65,51 @@ exports.generatePlan = async (req, res) => {
       return fail(res, 400, 'Duration weeks must be a positive number');
     }
 
-    const rawRoadmap = await generateRoadmap(goal, dailyTime, durationWeeks);
+    // Set a timeout for the entire operation (45 seconds)
+    // Gemini will retry for up to ~30 seconds, then fallback
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Request timeout: AI service took too long')), 45000)
+    );
+
+    const roadmapPromise = generateRoadmap(goal, Number(dailyTime), Number(durationWeeks));
+
+    // Race between roadmap generation and timeout
+    const rawRoadmap = await Promise.race([roadmapPromise, timeoutPromise]);
     const roadmap = safeRoadmapShape(rawRoadmap);
+
+    // Validate that we got at least one week
+    if (!roadmap.weeks || roadmap.weeks.length === 0) {
+      return fail(res, 500, 'Failed to generate valid roadmap. Please try again.');
+    }
 
     const plan = await Plan.create({
       goal,
-      dailyTime,
-      durationWeeks,
+      dailyTime: Number(dailyTime),
+      durationWeeks: Number(durationWeeks),
       roadmap,
       userId: req.user._id,
     });
 
-    console.log('FINAL ROADMAP RESPONSE:', plan.roadmap);
+    console.log('✅ FINAL ROADMAP RESPONSE:', {
+      weekCount: plan.roadmap.weeks.length,
+      totalTopics: plan.roadmap.weeks.reduce((sum, w) => sum + w.topics.length, 0),
+    });
+
     return ok(res, {
       weeks: Array.isArray(plan?.roadmap?.weeks) ? plan.roadmap.weeks : [],
     });
+
   } catch (error) {
-    console.error('generatePlan error:', error);
+    console.error('❌ generatePlan error:', {
+      message: error.message,
+      stack: error.stack?.substring(0, 200),
+    });
+
+    // Distinguish between timeout and other errors
+    if (error.message.includes('timeout')) {
+      return fail(res, 504, 'Request timeout - AI service is experiencing delays. Your fallback plan has been queued.');
+    }
+
     return fail(res, 500, error.message || 'Failed to generate plan');
   }
 };
