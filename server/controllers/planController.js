@@ -4,21 +4,40 @@ const { ok, fail } = require('../utils/response');
 
 function safeRoadmapShape(rawRoadmap) {
   const rawWeeks = Array.isArray(rawRoadmap?.weeks) ? rawRoadmap.weeks : [];
+
   const weeks = rawWeeks.map((week, index) => ({
     week: Number(week?.week) || index + 1,
-    title: typeof week?.title === 'string' ? week.title : `Week ${index + 1}`,
+
+    title:
+      typeof week?.title === 'string' && week.title.trim()
+        ? week.title
+        : `Week ${index + 1}`,
+
     topics: Array.isArray(week?.topics)
-      ? week.topics.map((topic) => {
-          if (typeof topic === 'string') return { name: topic, difficulty: 'medium' };
-          return {
-            name: typeof topic?.name === 'string' ? topic.name : 'Topic',
-            difficulty: ['easy', 'medium', 'hard'].includes(String(topic?.difficulty).toLowerCase())
-              ? String(topic.difficulty).toLowerCase()
-              : 'medium',
-          };
-        })
+      ? week.topics
+          .map((topic) => {
+            if (typeof topic === 'string') {
+              return { name: topic, difficulty: 'medium' };
+            }
+
+            return {
+              name:
+                typeof topic?.name === 'string' && topic.name.trim()
+                  ? topic.name
+                  : null, // ⚠️ mark invalid
+
+              difficulty: ['easy', 'medium', 'hard'].includes(
+                String(topic?.difficulty).toLowerCase()
+              )
+                ? String(topic.difficulty).toLowerCase()
+                : 'medium',
+            };
+          })
+          .filter((t) => t.name) // 🔥 remove invalid topics
       : [],
-  }));
+  }))
+  .filter((w) => w.topics.length > 0); // 🔥 remove empty weeks
+
   return { weeks };
 }
 
