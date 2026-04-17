@@ -2,6 +2,7 @@ import axios from 'axios';
 
 function resolveBaseUrl() {
   const raw = import.meta.env.VITE_API_URL;
+  console.log("API URL:", import.meta.env.VITE_API_URL);
   if (raw && typeof raw === 'string') return raw.replace(/\/+$/, '');
   // Fallback to same-origin (useful for local proxies / previews)
   return window.location.origin;
