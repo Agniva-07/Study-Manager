@@ -14,13 +14,16 @@ const api = axios.create({
   },
 });
 
-// ✅ ADD THIS BLOCK (IMPORTANT)
+// ✅ REQUEST INTERCEPTOR - Add token to headers
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
 
-    if (token) {
+    if (token && token !== 'null' && token !== '') {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log(`📤 [${config.method.toUpperCase()}] ${config.url} - Authorization header set`);
+    } else {
+      console.log(`📤 [${config.method.toUpperCase()}] ${config.url} - No token in localStorage`);
     }
 
     return config;
@@ -31,19 +34,29 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     if (response?.data?.success === true && Object.prototype.hasOwnProperty.call(response.data, 'data')) {
+      console.log(`📥 [${response.status}] Response - extracted data`);
       return { ...response, data: response.data.data };
     }
     return response;
   },
   (error) => {
-    if (error?.response?.status === 401) {
+    const status = error?.response?.status;
+    console.log(`❌ [HTTP ${status}]`, error?.response?.data?.message || error?.message);
+    
+    if (status === 401) {
+      console.log('🔓 401 Unauthorized - clearing auth');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      // Redirect to login after short delay
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 300);
     }
+    
     if (error?.response?.data?.success === false) {
-      const message = error.response.data.message || 'Request failed';
-      return Promise.reject(new Error(message));
+      return Promise.reject(new Error(error.response.data.message || 'Request failed'));
     }
+    
     return Promise.reject(error);
   }
 );

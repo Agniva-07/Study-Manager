@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -10,8 +11,6 @@ const authRoutes = require('./routes/authRoutes');
 const sectionRoutes = require("./routes/sectionRoutes");
 const socialRoutes = require('./routes/socialRoutes');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
-
-dotenv.config();
 
 const app = express();
 

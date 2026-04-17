@@ -26,10 +26,22 @@ const Login = () => {
     setSubmitting(true);
     setError("");
     try {
+      console.log('📤 Sending login request for:', form.email);
       const res = await api.post("/auth/login", form);
+      console.log('📥 Login response:', res.data);
+      
+      if (!res.data?.token || !res.data?.user) {
+        throw new Error('Backend response missing token or user');
+      }
+      
+      console.log('🔑 Token received:', res.data.token.substring(0, 20) + '...');
+      console.log('👤 User:', res.data.user.email);
+      
       login(res.data);
+      console.log('✅ Stored in localStorage, redirecting...');
       navigate("/");
     } catch (err) {
+      console.error('❌ Login failed:', err.message);
       setError(err.message || "Login failed");
     } finally {
       setSubmitting(false);

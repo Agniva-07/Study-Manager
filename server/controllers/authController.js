@@ -59,32 +59,41 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
     const normalizedEmail = String(email).trim().toLowerCase();
 
+    console.log('🔐 Login attempt for:', normalizedEmail);
+
     // 1. Check user exists
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
+      console.log('❌ User not found:', normalizedEmail);
       return fail(res, 400, 'Invalid credentials');
     }
 
     // 2. Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.log('❌ Password mismatch for:', normalizedEmail);
       return fail(res, 400, 'Invalid credentials');
     }
 
     // 3. Generate token
     const token = generateToken(user._id);
+    console.log('✅ Token generated for user:', user._id);
 
     // 4. Send response
-    return ok(res, {
+    const responseData = {
       token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email
       }
-    });
+    };
+    console.log('📤 Sending login response:', JSON.stringify(responseData, null, 2));
+    
+    return ok(res, responseData);
 
   } catch (error) {
+    console.log('❌ Login error:', error.message);
     return fail(res, 500, error.message || 'Login failed');
   }
 };
